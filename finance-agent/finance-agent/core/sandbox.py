@@ -27,6 +27,21 @@ def validate_syntax(code: str) -> str | None:
 
 
 def execute(code: str, expected_output: str) -> str:
+    """Execute code in sandbox. Returns path to expected output file.
+
+    Raises SandboxError on failure.
+    """
+    result = execute_detailed(code, expected_output)
+    if not result["success"]:
+        raise SandboxError(result["error"])
+    return expected_output
+
+
+def execute_detailed(code: str, expected_output: str) -> dict:
+    """Execute code in sandbox and return detailed results.
+
+    Returns dict with: success, stdout, stderr, error, files_generated, elapsed_ms
+    """
     log.info("=" * 60)
     log.info("[SANDBOX] Starting code execution")
     log.info("[SANDBOX] Expected output: %s", expected_output)
@@ -34,6 +49,11 @@ def execute(code: str, expected_output: str) -> str:
 
     generated_dir = Path(config.generated_dir).resolve()
     generated_dir.mkdir(parents=True, exist_ok=True)
+
+    # Snapshot existing files before execution
+    files_before = set()
+    if generated_dir.is_dir():
+        files_before = {str(f) for f in generated_dir.iterdir() if f.is_file()}
 
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".py", dir=str(generated_dir),
@@ -56,29 +76,69 @@ def execute(code: str, expected_output: str) -> str:
             cwd=str(generated_dir),
         )
         elapsed = time.time() - t0
+        elapsed_ms = int(elapsed * 1000)
 
-        if proc.stdout:
-            for line in proc.stdout.strip().split("\n")[:10]:
+        stdout = proc.stdout or ""
+        stderr = proc.stderr or ""
+
+        if stdout:
+            for line in stdout.strip().split("\n")[:10]:
                 log.info("[SANDBOX] stdout: %s", line)
-        if proc.stderr:
-            for line in proc.stderr.strip().split("\n")[:10]:
+        if stderr:
+            for line in stderr.strip().split("\n")[:10]:
                 log.warning("[SANDBOX] stderr: %s", line)
+
+        # Discover files created during execution
+        files_after = set()
+        if generated_dir.is_dir():
+            files_after = {str(f) for f in generated_dir.iterdir() if f.is_file()}
+        new_files = sorted(files_after - files_before - {script_path})
 
         if proc.returncode != 0:
             log.error("[SANDBOX] Script FAILED (exit code %d) after %.1fs", proc.returncode, elapsed)
-            raise SandboxError(f"Script failed (exit {proc.returncode}): {proc.stderr[-500:]}")
+            return {
+                "success": False,
+                "stdout": stdout,
+                "stderr": stderr,
+                "error": f"Script failed (exit {proc.returncode}): {stderr[-500:]}",
+                "files_generated": new_files,
+                "elapsed_ms": elapsed_ms,
+            }
 
-        if not Path(expected_output).exists():
+        output_exists = Path(expected_output).exists()
+        if not output_exists:
             log.error("[SANDBOX] Output file NOT FOUND: %s", expected_output)
-            raise SandboxError(f"Output file not created: {expected_output}")
+            return {
+                "success": False,
+                "stdout": stdout,
+                "stderr": stderr,
+                "error": f"Output file not created: {expected_output}",
+                "files_generated": new_files,
+                "elapsed_ms": elapsed_ms,
+            }
 
         file_size = Path(expected_output).stat().st_size
-        log.info("[SANDBOX] SUCCESS in %.1fs — output: %s (%d bytes)", elapsed, expected_output, file_size)
-        return expected_output
+        log.info("[SANDBOX] SUCCESS in %.1fs — output: %s (%d bytes), %d new files",
+                 elapsed, expected_output, file_size, len(new_files))
+        return {
+            "success": True,
+            "stdout": stdout,
+            "stderr": stderr,
+            "error": None,
+            "files_generated": new_files,
+            "elapsed_ms": elapsed_ms,
+        }
 
     except subprocess.TimeoutExpired:
         log.error("[SANDBOX] TIMEOUT after %ds", config.sandbox_timeout)
-        raise SandboxError(f"Script timed out after {config.sandbox_timeout}s")
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": "",
+            "error": f"Script timed out after {config.sandbox_timeout}s",
+            "files_generated": [],
+            "elapsed_ms": config.sandbox_timeout * 1000,
+        }
     finally:
         try:
             Path(script_path).unlink()

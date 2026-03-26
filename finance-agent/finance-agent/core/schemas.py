@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Literal
+from typing import Literal, Optional
 
 
 class ConversationTurn(BaseModel):
@@ -11,6 +11,33 @@ class QueryRequest(BaseModel):
     query: str
     format: str = "auto"
     conversation_history: list[ConversationTurn] = []
+
+
+# ── Onboarding schemas ──
+
+class OnboardingStartRequest(BaseModel):
+    employee_name: str
+    employee_email: Optional[str] = None
+    department: str
+    designation: str
+    region: Optional[str] = None
+    manager_email: Optional[str] = None
+    buddy_name: Optional[str] = None
+    buddy_email: Optional[str] = None
+    start_date: str
+
+
+class EmailActionRequest(BaseModel):
+    action: Literal["send", "revise", "skip"]
+    feedback: Optional[str] = None
+
+
+class SlotSelectionRequest(BaseModel):
+    slot_index: int
+
+
+class EmployeeSelectionRequest(BaseModel):
+    onboarding_id: int
 
 
 class DataRequirement(BaseModel):

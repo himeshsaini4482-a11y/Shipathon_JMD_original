@@ -9,13 +9,15 @@ from agents.prompts import DECOMPOSE_SYSTEM_PROMPT, ANALYZE_SYSTEM_PROMPT
 
 log = logging.getLogger("finance_agent")
 
+MAX_RETRIES = 2  # Max retry attempts for LLM calls (total attempts = MAX_RETRIES + 1)
+
 
 async def _call_llm(system_prompt: str, messages: list[dict], label: str = "LLM") -> str:
     """Call OpenRouter with a system prompt and a list of messages (for conversation context)."""
     last_error = None
-    for attempt in range(3):
+    for attempt in range(MAX_RETRIES + 1):
         try:
-            log.info("[%s] Calling OpenRouter (model=%s, attempt=%d/3)...", label, config.openrouter_model, attempt + 1)
+            log.info("[%s] Calling OpenRouter (model=%s, attempt=%d/%d)...", label, config.openrouter_model, attempt + 1, MAX_RETRIES + 1)
             t0 = time.time()
             all_messages = [{"role": "system", "content": system_prompt}] + messages
             async with httpx.AsyncClient(timeout=120) as client:
@@ -74,11 +76,11 @@ async def _call_llm(system_prompt: str, messages: list[dict], label: str = "LLM"
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as e:
             last_error = e
             log.warning("[%s] Attempt %d failed: %s", label, attempt + 1, e)
-            if attempt < 2:
+            if attempt < MAX_RETRIES:
                 import asyncio
                 log.info("[%s] Retrying in 2s...", label)
                 await asyncio.sleep(2)
-    log.error("[%s] All 3 attempts failed", label)
+    log.error("[%s] All %d attempts failed", label, MAX_RETRIES + 1)
     raise last_error
 
 

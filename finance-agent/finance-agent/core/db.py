@@ -93,6 +93,27 @@ ALLOWED_COLUMNS = {
         "units_currently_in_inventory", "safety_stock_quantity",
         "is_below_safety_stock",
     ],
+    # ── onboarding schema ──
+    "onboarding.manager_schedule": [
+        "schedule_id", "manager_email", "day_of_week", "start_time", "end_time",
+        "is_available", "block_label",
+    ],
+    "onboarding.onboarding_records": [
+        "onboarding_id", "employee_name", "employee_email", "department",
+        "designation", "region", "manager_name", "manager_email", "buddy_name",
+        "buddy_email", "start_date", "status", "current_step", "failed_at_step",
+        "error_message", "accounts_provisioned", "welcome_email_body",
+        "welcome_email_status", "welcome_email_sent_at", "kickoff_meeting_time",
+        "kickoff_meeting_attendees", "onboarding_doc_path", "created_at", "completed_at",
+    ],
+    "onboarding.email_drafts": [
+        "draft_id", "onboarding_id", "draft_number", "email_body",
+        "manager_feedback", "created_at",
+    ],
+    "onboarding.system_accounts": [
+        "account_id", "onboarding_id", "system_name", "account_identifier",
+        "status", "provisioned_at",
+    ],
 }
 
 ALLOWED_AGGREGATES = ["SUM", "AVG", "COUNT", "MIN", "MAX"]
@@ -363,5 +384,36 @@ def execute_query(table: str, columns: list[str], filters: dict = None,
                     record[col_names[i]] = v
                 data.append(record)
             return {"columns": col_names, "data": data}
+    finally:
+        put_connection(conn)
+
+
+def execute_write(query_str: str, params: list | tuple = None) -> any:
+    """Execute an INSERT/UPDATE/DELETE with parameterized queries. Returns first row for RETURNING clauses."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            log.info("[DB-WRITE] Executing: %s", query_str[:200])
+            log.info("[DB-WRITE] Params: %s", params)
+            cur.execute(query_str, params or [])
+            conn.commit()
+            if cur.description:
+                return cur.fetchone()
+            return None
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        put_connection(conn)
+
+
+def execute_read(query_str: str, params: list | tuple = None) -> list:
+    """Execute a raw SELECT query. Returns list of tuples."""
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            log.info("[DB-READ] Executing: %s", query_str[:200])
+            cur.execute(query_str, params or [])
+            return cur.fetchall()
     finally:
         put_connection(conn)

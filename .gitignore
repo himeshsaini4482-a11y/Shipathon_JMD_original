@@ -1,14 +1,46 @@
+# Credentials & secrets
+.env
+*.pem
+*.key
+credentials.json
+
 # Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
 
-# Environment
-.env
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Generated reports
+finance-agent/finance-agent/generated/*.pdf
+finance-agent/finance-agent/generated/*.png
+finance-agent/finance-agent/generated/*.pptx
+finance-agent/finance-agent/generated/*.xlsx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker volumes
+pgdata/
+
+# Claude Code
+.claude/
 
 # Archives
 *.zip
-
-# Generated files
-finance-agent/finance-agent/generated/*.pdf
-finance-agent/finance-agent/generated/*.png
