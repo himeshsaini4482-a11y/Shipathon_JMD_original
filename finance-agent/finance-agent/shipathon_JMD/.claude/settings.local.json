@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo $DATABASE_URL)",
+      "Bash(pip list:*)",
+      "Bash(pip install:*)",
+      "Bash(psql:*)",
+      "Read(//c/Program Files/PostgreSQL//**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Bash(where psql.exe)",
+      "Bash(\"/c/Program Files/PostgreSQL/17/bin/psql.exe\" -U postgres -c \"SELECT 1;\" 2>&1)",
+      "Bash(python:*)"
+    ]
+  }
+}

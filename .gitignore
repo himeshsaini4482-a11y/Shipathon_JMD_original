@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+
+# Archives
+*.zip
+
+# Generated files
+finance-agent/finance-agent/generated/*.pdf
+finance-agent/finance-agent/generated/*.png
